@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Role Cost Calculator</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #eef2ff;
+    color: #1e1b4b;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 960px; margin: 0 auto; }
+
+  /* ── Header ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;
+  }
+  header h1 { font-size: 1.75rem; font-weight: 700; color: #3730a3; }
+  header p  { font-size: .875rem; color: #6366f1; margin-top: .2rem; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .55rem 1.2rem; border-radius: 8px; border: none;
+    font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .18s;
+  }
+  .btn-primary { background: #4f46e5; color: #fff; }
+  .btn-primary:hover { background: #4338ca; transform: translateY(-1px); box-shadow: 0 4px 12px #4f46e540; }
+  .btn-secondary { background: #e0e7ff; color: #3730a3; }
+  .btn-secondary:hover { background: #c7d2fe; }
+  .btn-danger  { background: #fee2e2; color: #dc2626; padding: .35rem .7rem; font-size: .8rem; }
+  .btn-danger:hover { background: #fecaca; }
+  .btn-edit    { background: #e0e7ff; color: #4f46e5; padding: .35rem .7rem; font-size: .8rem; }
+  .btn-edit:hover { background: #c7d2fe; }
+  .btn-export  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .btn-export:hover { background: #dcfce7; }
+
+  /* ── Card ── */
+  .card {
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 2px 16px #6366f118; padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .card-title { font-size: 1rem; font-weight: 700; color: #3730a3; margin-bottom: 1rem; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  thead tr { background: #eef2ff; }
+  th { padding: .75rem 1rem; text-align: left; font-weight: 700; color: #4338ca;
+       white-space: nowrap; border-bottom: 2px solid #c7d2fe; }
+  td { padding: .75rem 1rem; border-bottom: 1px solid #e0e7ff; vertical-align: middle; }
+  tbody tr:hover { background: #f5f3ff; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ── Experience badge ── */
+  .badge {
+    display: inline-block; padding: .2rem .55rem; border-radius: 20px;
+    font-size: .75rem; font-weight: 600; white-space: nowrap; margin-left: .4rem;
+  }
+  .badge-junior  { background: #d1fae5; color: #065f46; }
+  .badge-mid     { background: #dbeafe; color: #1e40af; }
+  .badge-senior  { background: #ede9fe; color: #5b21b6; }
+  .badge-lead    { background: #fef3c7; color: #92400e; }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center; padding: 3rem 1rem; color: #a5b4fc;
+  }
+  .empty svg { width: 56px; height: 56px; margin-bottom: .75rem; opacity: .5; }
+  .empty p { font-size: 1rem; font-weight: 500; }
+  .empty small { font-size: .8rem; }
+
+  /* ── Totals ── */
+  .totals-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;
+  }
+  .total-card {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    color: #fff; border-radius: 12px; padding: 1.1rem 1.3rem;
+    box-shadow: 0 4px 14px #4f46e530;
+  }
+  .total-card .label { font-size: .78rem; opacity: .85; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+  .total-card .amount {
+    font-size: 1.45rem; font-weight: 800; margin-top: .25rem;
+    transition: transform .25s, color .25s;
+  }
+  .total-card .amount.pop { transform: scale(1.12); color: #fde68a; }
+
+  /* ── Action row ── */
+  .action-row { display: flex; gap: .75rem; justify-content: flex-end; flex-wrap: wrap; margin-bottom: .75rem; }
+
+  /* ── Modal overlay ── */
+  .overlay {
+    position: fixed; inset: 0; background: #1e1b4b66;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity .22s;
+    backdrop-filter: blur(3px);
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  /* ── Modal box ── */
+  .modal {
+    background: #fff; border-radius: 16px; padding: 2rem;
+    width: 100%; max-width: 420px; box-shadow: 0 20px 60px #1e1b4b30;
+    transform: translateY(24px) scale(.97); transition: transform .25s;
+  }
+  .overlay.open .modal { transform: translateY(0) scale(1); }
+  .modal h2 { font-size: 1.2rem; font-weight: 700; color: #3730a3; margin-bottom: 1.4rem; }
+
+  /* ── Form fields ── */
+  .field { margin-bottom: 1.2rem; }
+  label { display: block; font-size: .83rem; font-weight: 600; color: #4338ca; margin-bottom: .4rem; }
+  input[type="text"] {
+    width: 100%; padding: .6rem .85rem; border: 1.5px solid #c7d2fe;
+    border-radius: 8px; font-size: .95rem; color: #1e1b4b; outline: none;
+    transition: border .15s;
+  }
+  input[type="text"]:focus { border-color: #6366f1; box-shadow: 0 0 0 3px #6366f120; }
+
+  /* ── Sliders ── */
+  .slider-row { display: flex; align-items: center; gap: .8rem; }
+  input[type="range"] {
+    flex: 1; -webkit-appearance: none; height: 5px; background: #e0e7ff;
+    border-radius: 99px; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    border-radius: 50%; background: #4f46e5; border: 2px solid #fff;
+    box-shadow: 0 1px 6px #4f46e540; cursor: pointer; transition: background .15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { background: #4338ca; }
+  .slider-val {
+    min-width: 68px; text-align: right; font-size: .9rem;
+    font-weight: 700; color: #4f46e5; white-space: nowrap;
+  }
+
+  .modal-actions { display: flex; gap: .75rem; margin-top: 1.6rem; justify-content: flex-end; }
+
+  /* ── Responsive ── */
+  @media (max-width: 520px) {
+    th, td { padding: .6rem .6rem; font-size: .8rem; }
+    .modal { padding: 1.4rem; }
+    header h1 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div>
+      <h1>💼 Role Cost Calculator</h1>
+      <p>Estimate team costs by role, experience & hourly rate</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">＋ Add Role</button>
+  </header>
+
+  <!-- Roles Table Card -->
+  <div class="card">
+    <div class="action-row">
+      <button class="btn btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="rolesTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Role</th>
+            <th>Experience</th>
+            <th>Hourly Rate</th>
+            <th>Monthly Cost</th>
+            <th>Yearly Cost</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <!-- Empty state -->
+    <div id="emptyState" class="empty">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"/>
+      </svg>
+      <p>No roles added yet</p>
+      <small>Click "Add Role" to get started</small>
+    </div>
+  </div>
+
+  <!-- Totals Card -->
+  <div class="card">
+    <div class="card-title">📊 Total Cost Summary</div>
+    <div class="totals-grid">
+      <div class="total-card">
+        <div class="label">Total Hourly</div>
+        <div class="amount" id="totalHourly">$0.00</div>
+      </div>
+      <div class="total-card">
+        <div class="label">Total Monthly</div>
+        <div class="amount" id="totalMonthly">$0.00</div>
+      </div>
+      <div class="total-card">
+        <div class="label">Total Yearly</div>
+        <div class="amount" id="totalYearly">$0.00</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Overlay -->
+<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">Add New Role</h2>
+
+    <div class="field">
+      <label for="roleInput">Role Name</label>
+      <input type="text" id="roleInput" placeholder="e.g. Frontend Developer" maxlength="60">
+    </div>
+
+    <div class="field">
+      <label>Experience <span id="expBadge" class="badge badge-junior">Junior</span></label>
+      <div class="slider-row">
+        <input type="range" id="expSlider" min="0" max="20" step="1" value="0"
+               oninput="updateSliders()">
+        <span class="slider-val" id="expVal">0 yrs</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Hourly Rate</label>
+      <div class="slider-row">
+        <input type="range" id="rateSlider" min="10" max="300" step="5" value="50"
+               oninput="updateSliders()">
+        <span class="slider-val" id="rateVal">$50</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modalSubmitBtn" onclick="submitRole()">Add Role</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── State ── */
+  let roles   = [];       // array of role objects
+  let editId  = null;     // null = add mode, number = edit mode
+
+  /* ── Constants ── */
+  const HRS_PER_WEEK  = 40;
+  const WEEKS_PER_MON = 4.33;
+
+  /* ── Helpers ── */
+  const fmt = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function expLabel(yrs) {
+    if (yrs <= 2)  return { text: 'Junior',  cls: 'badge-junior' };
+    if (yrs <= 5)  return { text: 'Mid',     cls: 'badge-mid'    };
+    if (yrs <= 10) return { text: 'Senior',  cls: 'badge-senior' };
+    return               { text: 'Lead',    cls: 'badge-lead'   };
+  }
+
+  function calcCosts(hourly) {
+    const monthly = hourly * HRS_PER_WEEK * WEEKS_PER_MON;
+    return { monthly, yearly: monthly * 12 };
+  }
+
+  /* ── Slider live update ── */
+  function updateSliders() {
+    const exp  = +document.getElementById('expSlider').value;
+    const rate = +document.getElementById('rateSlider').value;
+    document.getElementById('expVal').textContent  = exp + ' yrs';
+    document.getElementById('rateVal').textContent = '$' + rate;
+    const lbl = expLabel(exp);
+    const badge = document.getElementById('expBadge');
+    badge.textContent  = lbl.text;
+    badge.className    = 'badge ' + lbl.cls;
+  }
+
+  /* ── Modal open / close ── */
+  function openModal(id = null) {
+    editId = id;
+    const overlay = document.getElementById('overlay');
+    const title   = document.getElementById('modalTitle');
+    const btn     = document.getElementById('modalSubmitBtn');
+
+    if (id !== null) {
+      // Edit mode — pre-fill
+      const r = roles.find(r => r.id === id);
+      document.getElementById('roleInput').value     = r.name;
+      document.getElementById('expSlider').value     = r.exp;
+      document.getElementById('rateSlider').value    = r.rate;
+      title.textContent = 'Edit Role';
+      btn.textContent   = 'Save Changes';
+    } else {
+      // Add mode — reset
+      document.getElementById('roleInput').value     = '';
+      document.getElementById('expSlider').value     = 0;
+      document.getElementById('rateSlider').value    = 50;
+      title.textContent = 'Add New Role';
+      btn.textContent   = 'Add Role';
+    }
+    updateSliders();
+    overlay.classList.add('open');
+    setTimeout(() => document.getElementById('roleInput').focus(), 250);
+  }
+
+  function closeModal() {
+    document.getElementById('overlay').classList.remove('open');
+    editId = null;
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('overlay')) closeModal();
+  }
+
+  /* ── Submit (add / edit) ── */
+  function submitRole() {
+    const name = document.getElementById('roleInput').value.trim();
+    const exp  = +document.getElementById('expSlider').value;
+    const rate = +document.getElementById('rateSlider').value;
+
+    if (!name) {
+      document.getElementById('roleInput').focus();
+      document.getElementById('roleInput').style.borderColor = '#f87171';
+      setTimeout(() => document.getElementById('roleInput').style.borderColor = '', 1200);
+      return;
+    }
+
+    const { monthly, yearly } = calcCosts(rate);
+
+    if (editId !== null) {
+      // Update existing
+      const r = roles.find(r => r.id === editId);
+      Object.assign(r, { name, exp, rate, monthly, yearly });
+    } else {
+      // Add new
+      roles.push({ id: Date.now(), name, exp, rate, monthly, yearly });
+    }
+
+    closeModal();
+    renderTable();
+    updateTotals();
+  }
+
+  /* ── Remove role ── */
+  function removeRole(id) {
+    roles = roles.filter(r => r.id !== id);
+    renderTable();
+    updateTotals();
+  }
+
+  /* ── Render table ── */
+  function renderTable() {
+    const tbody  = document.getElementById('tableBody');
+    const empty  = document.getElementById('emptyState');
+    const table  = document.getElementById('rolesTable');
+
+    tbody.innerHTML = '';
+
+    if (roles.length === 0) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+
+    table.style.display = '';
+    empty.style.display = 'none';
+
+    roles.forEach((r, i) => {
+      const lbl = expLabel(r.exp);
+      const tr  = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td><strong>${escHtml(r.name)}</strong></td>
+        <td>${r.exp} yrs <span class="badge ${lbl.cls}">${lbl.text}</span></td>
+        <td>${fmt(r.rate)}/hr</td>
+        <td>${fmt(r.monthly)}</td>
+        <td>${fmt(r.yearly)}</td>
+        <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+          <button class="btn btn-edit" onclick="openModal(${r.id})">✏ Edit</button>
+          <button class="btn btn-danger" onclick="removeRole(${r.id})">✕ Remove</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* ── Update totals with pop animation ── */
+  function updateTotals() {
+    const totH = roles.reduce((s, r) => s + r.rate,    0);
+    const totM = roles.reduce((s, r) => s + r.monthly, 0);
+    const totY = roles.reduce((s, r) => s + r.yearly,  0);
+
+    animateTotal('totalHourly',  fmt(totH));
+    animateTotal('totalMonthly', fmt(totM));
+    animateTotal('totalYearly',  fmt(totY));
+  }
+
+  function animateTotal(id, val) {
+    const el = document.getElementById(id);
+    el.textContent = val;
+    el.classList.remove('pop');
+    void el.offsetWidth; // reflow to restart animation
+    el.classList.add('pop');
+    setTimeout(() => el.classList.remove('pop'), 300);
+  }
+
+  /* ── Export CSV ── */
+  function exportCSV() {
+    if (roles.length === 0) { alert('No roles to export.'); return; }
+    const header = ['#','Role','Experience (yrs)','Level','Hourly Rate','Monthly Cost','Yearly Cost'];
+    const rows   = roles.map((r, i) => [
+      i + 1,
+      `"${r.name.replace(/"/g,'""')}"`,
+      r.exp,
+      expLabel(r.exp).text,
+      r.rate.toFixed(2),
+      r.monthly.toFixed(2),
+      r.yearly.toFixed(2)
+    ]);
+    // Totals row
+    const totH = roles.reduce((s,r) => s + r.rate,    0);
+    const totM = roles.reduce((s,r) => s + r.monthly, 0);
+    const totY = roles.reduce((s,r) => s + r.yearly,  0);
+    rows.push(['','TOTAL','','', totH.toFixed(2), totM.toFixed(2), totY.toFixed(2)]);
+
+    const csv  = [header, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a'); a.href = url;
+    a.download = 'role_cost_calculator.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ── Sanitize HTML ── */
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  /* ── Keyboard: close modal on Escape ── */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter' && document.getElementById('overlay').classList.contains('open')) submitRole();
+  });
+
+  /* ── Init ── */
+  renderTable();
+  updateTotals();
+</script>
+</body>
+</html>
